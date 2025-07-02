@@ -1,57 +1,53 @@
+Jenkinsfile
+
+
+
 pipeline {
     agent any
-
     environment {
-        NODE_VERSION = '22'
+        PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH'
     }
-
-    tools {
-        nodejs "${NODE_VERSION}"
-    }
-
     stages {
-        stage('Checkout') {
+        
+        stage('Install dependencies') {
             steps {
-                checkout scm
+                sh '''
+                    echo "Installing dependencies..."
+                    node -v
+                    npm ci
+                '''
             }
         }
-
-        stage('Install Dependencies') {
+        stage('Run Playwright tests') {
             steps {
-                sh 'npm ci'
+                sh '''
+                    echo "Running tests..."
+                    npx playwright test --reporter=html
+                '''
             }
         }
-
-        stage('Install Playwright Browsers') {
+        stage('Prepare HTML Report') {
             steps {
-                sh 'npx playwright install'
+                sh '''
+                    echo "Preparing report for Jenkins..."
+                    mkdir -p reports
+                    cp -r playwright-report/* reports/
+                '''
             }
         }
-
-        stage('Run Playwright Tests') {
+        stage('Publish reports') {
             steps {
-                sh 'npx playwright test'
-            }
-        }
-
-        stage('Archive Report') {
-            steps {
-                publishHTML (target: [
+                echo 'Publishing HTML test report...'
+                publishHTML([
                     allowMissing: false,
                     alwaysLinkToLastBuild: true,
                     keepAll: true,
-                    reportDir: 'playwright-report',
+                    reportDir: 'reports',
                     reportFiles: 'index.html',
-                    reportName: 'Playwright Test Report'
+                    reportName: 'Playwright HTML Report',
+                    useWrapperFileDirectly: true
                 ])
             }
-        }
-    }
-
-    post {
-        always {
-            echo 'Cleaning up...'
-            cleanWs()
         }
     }
 }
